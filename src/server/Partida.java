@@ -106,4 +106,48 @@ public class Partida {
         }
     }
 
+    // Revancha, abandono y limpieza 
+
+    public synchronized void revancha(Jugador jugador) {
+        if (jugadores[1] == null || enCurso) {
+            jugador.enviar(Protocolo.DENIED + " la revancha solo se pide al terminar la partida");
+            return;
+        }
+        quiereRevancha[jugador.getIndice()] = true;
+        if (quiereRevancha[0] && quiereRevancha[1]) {
+            empezar();
+        } else {
+            jugador.enviar(Protocolo.WAIT);
+        }
+    }
+
+    /**
+     * Se llama siempre que un jugador se va (BYE, caída de red o error). Idempotente.
+     * Si queda un rival: si había partida en curso gana por abandono; si no, recibe LEFT.
+     * En ambos casos se cierra su conexión y la partida queda libre para dos jugadores nuevos.
+     */
+    public synchronized void desconectar(Jugador jugador) {
+        int i = jugador.getIndice();
+        if (jugadores[i] != jugador) {
+            return; // ya estaba fuera
+        }
+        jugadores[i] = null;
+        System.out.println("[servidor] " + jugador.getNombre() + " se desconecta");
+
+        Jugador rival = jugadores[1 - i];
+        if (rival != null) {
+            if (enCurso) {
+                rival.enviar(Protocolo.END + " " + Protocolo.WIN + " " + rival.getMarca() + " " + Protocolo.ABANDONO);
+            } else {
+                rival.enviar(Protocolo.LEFT);
+            }
+            jugadores[1 - i] = null;
+            rival.cerrar();
+        }
+        enCurso = false;
+        turno = 'X';
+        tablero.reiniciar();
+        Arrays.fill(quiereRevancha, false);
+    }
+
 }

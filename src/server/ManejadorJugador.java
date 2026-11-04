@@ -21,11 +21,12 @@ public class ManejadorJugador implements Runnable {
 
     @Override
     public void run() {
+        Jugador jugador = null;
         try (Socket s = socket) {
             BufferedReader in = new BufferedReader(new InputStreamReader(s.getInputStream(), StandardCharsets.UTF_8));
             PrintWriter out = new PrintWriter(new OutputStreamWriter(s.getOutputStream(), StandardCharsets.UTF_8), true);
 
-            //  Registro: PLAY <nombre> 
+            // Registro: PLAY <nombre> 
             if (partida.estaLlena()) {
                 out.println(Protocolo.FULL + " Partida llena");
                 return;
@@ -37,9 +38,10 @@ public class ManejadorJugador implements Runnable {
                 out.println(Protocolo.DENIED + " se esperaba PLAY <nombre>");
                 return;
             }
-            Jugador jugador = new Jugador(p[1].trim(), s, out);
+            jugador = new Jugador(p[1].trim(), s, out);
             if (!partida.unir(jugador)) {
                 out.println(Protocolo.FULL + " Partida llena");
+                jugador = null;
                 return;
             }
 
@@ -49,11 +51,18 @@ public class ManejadorJugador implements Runnable {
                 String argumento = c.length > 1 ? c[1] : "";
                 switch (c[0].toUpperCase()) {
                     case Protocolo.MOVE -> partida.mover(jugador, argumento);
+                    case Protocolo.REMATCH -> partida.revancha(jugador);
+                    case Protocolo.BYE -> { return; }
                     default -> jugador.enviar(Protocolo.DENIED + " comando desconocido");
                 }
             }
         } catch (IOException e) {
             System.out.println("[servidor] conexión cerrada: " + e.getMessage());
+        } finally {
+            // Pase lo que pase, avisar al rival y liberar recursos 
+            if (jugador != null) {
+                partida.desconectar(jugador);
+            }
         }
     }
 }
