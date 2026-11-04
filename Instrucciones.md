@@ -1,5 +1,5 @@
 # Cómo jugar al tres en raya online (guía desde cero)
-
+ 
 Para jugar hacen falta **dos jugadores** y **un servidor**. El servidor se arranca en uno de los dos ordenadores. Por eso hay dos papeles:
 
 | Papel | Qué hace | Ordenador |
