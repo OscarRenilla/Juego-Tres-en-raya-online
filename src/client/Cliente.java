@@ -8,16 +8,20 @@ import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** Cliente de consola. Uso: Cliente [host] [puerto] [nombre] */
 public class Cliente {
+    private static final Pattern JUGADA = Pattern.compile("^([0-2])\\s*[ ,]\\s*([0-2])$");
+
     private final Socket socket;
     private final BufferedReader in;
     private final PrintWriter out;
     private volatile boolean terminado = false;
     private volatile String marca = "?";
 
-    // Conexión, registro y hilo receptor 
+    // Conexión, registro y hilo receptor
 
     public Cliente(String host, int puerto) throws IOException {
         socket = new Socket(host, puerto);
@@ -90,18 +94,58 @@ public class Cliente {
         }
     }
 
+    // Entrada por teclado, revancha, BYE y cierre 
+
+    private void bucleEntrada() throws IOException, InterruptedException {
+        BufferedReader teclado = new BufferedReader(new InputStreamReader(System.in));
+        while (!terminado) {
+            if (!teclado.ready()) {      // sondeo: así el bucle se entera si el hilo receptor termina
+                Thread.sleep(100);
+                continue;
+            }
+            String linea = teclado.readLine();
+            if (linea == null) break;
+            linea = linea.trim();
+            if (linea.isEmpty()) continue;
+
+            if (linea.equalsIgnoreCase("q")) {
+                out.println(Protocolo.BYE);
+                break;
+            }
+            if (linea.equalsIgnoreCase("r")) {
+                out.println(Protocolo.REMATCH);
+                continue;
+            }
+            Matcher m = JUGADA.matcher(linea);
+            if (m.matches()) {
+                out.println(Protocolo.MOVE + " " + m.group(1) + "," + m.group(2));
+            } else {
+                System.out.println("Formato: fila columna (0-2), 'r' revancha, 'q' salir.");
+            }
+        }
+    }
+
     public void jugar() {
         Thread receptor = new Thread(this::escucharServidor, "receptor");
         receptor.setDaemon(true);
         receptor.start();
-        try (BufferedReader teclado = new BufferedReader(new InputStreamReader(System.in))) {
-            String linea;
-            while (!terminado && (linea = teclado.readLine()) != null) {
-                out.println(linea);
-            }
-        } catch (IOException e) {
+        try {
+            bucleEntrada();
+        } catch (IOException | InterruptedException e) {
             System.out.println("Error de entrada: " + e.getMessage());
+        } finally {
+            cerrar();
         }
+    }
+
+    private void cerrar() {
+        terminado = true;
+        try {
+            socket.close();   // cierra también in y out
+        } catch (IOException ignorada) {
+            // nada que hacer
+        }
+        System.out.println("Cliente cerrado.");
     }
 
     public static void main(String[] args) {
