@@ -25,7 +25,7 @@ public class ManejadorJugador implements Runnable {
             BufferedReader in = new BufferedReader(new InputStreamReader(s.getInputStream(), StandardCharsets.UTF_8));
             PrintWriter out = new PrintWriter(new OutputStreamWriter(s.getOutputStream(), StandardCharsets.UTF_8), true);
 
-            // Registro: PLAY <nombre> 
+            //  Registro: PLAY <nombre> 
             if (partida.estaLlena()) {
                 out.println(Protocolo.FULL + " Partida llena");
                 return;
@@ -43,7 +43,15 @@ public class ManejadorJugador implements Runnable {
                 return;
             }
 
-            while (in.readLine() != null) { }  
+            // Bucle de comandos 
+            while ((linea = in.readLine()) != null) {
+                String[] c = linea.trim().split("\\s+", 2);
+                String argumento = c.length > 1 ? c[1] : "";
+                switch (c[0].toUpperCase()) {
+                    case Protocolo.MOVE -> partida.mover(jugador, argumento);
+                    default -> jugador.enviar(Protocolo.DENIED + " comando desconocido");
+                }
+            }
         } catch (IOException e) {
             System.out.println("[servidor] conexión cerrada: " + e.getMessage());
         }

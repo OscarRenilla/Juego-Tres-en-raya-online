@@ -55,4 +55,55 @@ public class Partida {
             if (j != null) j.enviar(mensaje);
         }
     }
+
+    // Movimientos y turnos 
+
+    public synchronized void mover(Jugador jugador, String argumento) {
+        if (jugadores[1] == null) {
+            jugador.enviar(Protocolo.DENIED + " esperando al rival");
+            return;
+        }
+        if (!enCurso) {
+            jugador.enviar(Protocolo.DENIED + " partida terminada");
+            return;
+        }
+        if (jugador.getMarca() != turno) {
+            jugador.enviar(Protocolo.DENIED + " no es tu turno");
+            return;
+        }
+
+        int fila, col;
+        try {
+            String[] partes = argumento.trim().split(",");
+            if (partes.length != 2) throw new NumberFormatException();
+            fila = Integer.parseInt(partes[0].trim());
+            col = Integer.parseInt(partes[1].trim());
+        } catch (NumberFormatException e) {
+            jugador.enviar(Protocolo.DENIED + " formato invalido, usa MOVE fila,col");
+            return;
+        }
+
+        if (!tablero.dentro(fila, col)) {
+            jugador.enviar(Protocolo.DENIED + " fuera del tablero");
+            return;
+        }
+        if (!tablero.colocar(fila, col, turno)) {
+            jugador.enviar(Protocolo.DENIED + " casilla ocupada");
+            return;
+        }
+
+        difundir(Protocolo.OK + " " + tablero.comoTexto());
+
+        if (tablero.hayGanador(turno)) {
+            enCurso = false;
+            difundir(Protocolo.END + " " + Protocolo.WIN + " " + turno);
+        } else if (tablero.estaLleno()) {
+            enCurso = false;
+            difundir(Protocolo.END + " " + Protocolo.DRAW);
+        } else {
+            turno = (turno == 'X') ? 'O' : 'X';
+            difundir(Protocolo.TURN + " " + turno);
+        }
+    }
+
 }
